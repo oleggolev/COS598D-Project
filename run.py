@@ -1,22 +1,15 @@
 import tensorflow_hub as hub
 import tensorflow as tf
 
-model = tf.saved_model.load("./model")
+model = hub.load('https://tfhub.dev/google/humpback_whale/1')
+# model = tf.saved_model.load("./model")
 
 FILENAME = 'gs://bioacoustics-www1/sounds/Cross_02_060203_071428.d20_7.wav'
 
-waveform, _ = tf.audio.decode_wav(tf.io.read_file(FILENAME))
+waveform, sample_rate = tf.audio.decode_wav(tf.io.read_file(FILENAME))
+
 waveform = tf.expand_dims(waveform, 0)  # makes a batch of size 1
-
-pcen_spectrogram = model.front_end(waveform)
-context_window = pcen_spectrogram[:, :128, :]
-features = model.features(context_window)
-logits = model.logits(context_window)
-probabilities = tf.nn.sigmoid(logits)
-
-print({
-    'pcen_spectrogram': pcen_spectrogram,
-    'features': features,
-    'logits': logits,
-    'probabilities': probabilities,
-})
+context_step_samples = tf.cast(sample_rate, tf.int64)
+score_fn = model.signatures['score']
+scores = score_fn(waveform=waveform, context_step_samples=context_step_samples)
+print(scores)
