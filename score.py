@@ -1,57 +1,47 @@
 import re
-import csv
-import random
 import itertools
+from pathlib import PurePath
+from pydub import AudioSegment
+from google.cloud import storage
+import torchaudio
 import tensorflow as tf
 import tensorflow_io as tfio
+from sample import get_samples
 
-N = 10          # number of samples from all annotated audio files
-SEED = 69420    # fixed seed to ensure the same sample are drawn
+import os
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "/Users/oleggolev/.config/gcloud/legacy_credentials/ogolev@princeton.edu/adc.json"
+BUCKET = "noaa-passive-bioacoustic"
+CLIENT = "COS598D-Whale"
 
-"""
-Headers:
-[0] audit_name
-[1] flac_compressed_xwav_object
-[2] subchunk_index
-[3] label_is_strong
-[4] implicit_negatives
-[5] label
-[6] begin_rel_subchunk
-[7] end_rel_subchunk
-[8] begin_utc,end_utc
-"""
-headers = []
-data = []
-with open('./detections/annotations.csv', newline='') as csvfile:
-    reader = csv.reader(csvfile, delimiter=',')
-    line_count = 0
-    for row in reader:
-        if line_count == 0:
-            headers = row
-        else:
-            obj = {}
-            for i in range(len(headers)):
-                obj[headers[i]] = row[i]
-            data.append(obj)
-        line_count += 1
-
-# Sample the same N instances out of the 38857 data points
-random.seed(SEED)
-samples = random.sample(data, N)
-
-# For each sample, download the audio file, and cut out the target interval.
-for sample in samples:
+# For each sample, download the audio file.
+for sample in get_samples(1):
     # Process the filename. Since the dataset was released, the paths changed.
     # Path in the csv: gs://noaa-passive-bioacoustic/pifsc/Hawaii/Hawaii14/audio/Hawaii_K_14_121216_190000.df20.x.flac
     # Actual web path: gs://noaa-passive-bioacoustic/pifsc/audio/pipan/hawaii/pipan_hawaii_14/audio/Hawaii_K_14_121216_190000.df20.x.flac
-    parts = sample['flac_compressed_xwav_object'].split("/")[2:]
-    location_separated = [frag.lower() for frag in ["".join(char) for _, char in itertools.groupby(parts[3], key=str.isdigit)]]
-    filename = "gs://" + "/".join([parts[0], parts[1], "audio", "pipan", parts[2].lower(), "pipan_" + "_".join([parts[2].lower(),location_separated[1]]), parts[4], parts[5]])
-    print("Downloading", filename)
+    parts = sample['flac_compressed_xwav_object'].split("/")[3:]
+    location_separated = [frag.lower() for frag in ["".join(char) for _, char in itertools.groupby(parts[2], key=str.isdigit)]]
+    blob_path = "/".join([parts[0], "audio", "pipan", parts[1].lower(), "pipan_" + "_".join([parts[1].lower(),location_separated[1]]), parts[3], parts[4]])
+    local_filename = parts[4]
+    local_filename_path = "./samples_flac/" + local_filename
+    print("Downloading", local_filename)
+
+    # Download the sample file.
+    storage_client = storage.Client(CLIENT)
+    bucket = storage_client.get_bucket(BUCKET)
+    blob = bucket.blob(blob_path)
+    blob.download_to_filename(local_filename_path)
+    print("Downloaded", local_filename)
+
+    # Convert the flac file to wav.
+    flac_audio_path = PurePath(local_filename_path)
+    flac_audio = AudioSegment.from_file(flac_audio_path, flac_audio_path.suffix[1:])
+    wav_audio_path = flac_audio_path.name.replace(flac_audio_path.suffix, "") + ".wav"
+    flac_audio.export("samples_wav/" + wav_audio_path, format="wav")
     
-    # Attempt to obtain the file. Some files may be missing.
-    try:
-        flac_file = tf.io.read_file(filename)
-        print("Downloaded", filename)
-    except Exception as e:
-        print("Failed to get", filename, e)
+    # Cut out the desired section. Save the cutout section. Delete flac and wav files.
+    subchunk_start = int(sample["subchunk_index"]) * 75.0
+    t1 = subchunk_start + float(sample["begin_rel_subchunk"])
+    t2 = subchunk_start + float(sample["end_rel_subchunk"])
+    newAudio = AudioSegment.from_wav("samples_wav/" + wav_audio_path)
+    newAudio = newAudio[t1:t2]
+    newAudio.export(wav_audio_path.replace("samples_wav/", "clips/")., format="wav") #Exports to a wav file in the current path.
