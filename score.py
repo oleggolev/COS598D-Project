@@ -14,7 +14,7 @@ BUCKET = "noaa-passive-bioacoustic"
 CLIENT = "COS598D-Whale"
 
 # For each sample, download the audio file.
-for sample in get_samples(1):
+for sample in get_samples(10):
     # Process the filename. Since the dataset was released, the paths changed.
     # Path in the csv: gs://noaa-passive-bioacoustic/pifsc/Hawaii/Hawaii14/audio/Hawaii_K_14_121216_190000.df20.x.flac
     # Actual web path: gs://noaa-passive-bioacoustic/pifsc/audio/pipan/hawaii/pipan_hawaii_14/audio/Hawaii_K_14_121216_190000.df20.x.flac
@@ -35,13 +35,21 @@ for sample in get_samples(1):
     # Convert the flac file to wav.
     flac_audio_path = PurePath(local_filename_path)
     flac_audio = AudioSegment.from_file(flac_audio_path, flac_audio_path.suffix[1:])
-    wav_audio_path = flac_audio_path.name.replace(flac_audio_path.suffix, "") + ".wav"
-    flac_audio.export("samples_wav/" + wav_audio_path, format="wav")
+    wav_audio_file = flac_audio_path.name.replace(flac_audio_path.suffix, "") + ".wav"
+    wav_audio_path = "samples_wav/" + wav_audio_file
+    flac_audio.export(wav_audio_path, format="wav")
     
-    # Cut out the desired section. Save the cutout section. Delete flac and wav files.
+    # Cut out the desired section. Save the cutout section with its label.
     subchunk_start = int(sample["subchunk_index"]) * 75.0
     t1 = subchunk_start + float(sample["begin_rel_subchunk"])
     t2 = subchunk_start + float(sample["end_rel_subchunk"])
-    newAudio = AudioSegment.from_wav("samples_wav/" + wav_audio_path)
+    newAudio = AudioSegment.from_wav(wav_audio_path)
     newAudio = newAudio[t1:t2]
-    newAudio.export(wav_audio_path.replace("samples_wav/", "clips/")., format="wav") #Exports to a wav file in the current path.
+    # Save the clip in the following format:
+    # ./clips/<label>-<name_of_file>-<starting timestamp from original recording>
+    clip_path = "clips/" + sample["label"] + "-" + wav_audio_file + "-" + str(t1)
+    newAudio.export(clip_path, format="wav")
+    
+    # Delete flac and wav files.
+    os.remove(local_filename_path)
+    os.remove(wav_audio_path)
