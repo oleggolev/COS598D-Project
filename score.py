@@ -46,8 +46,8 @@ for sample in get_samples(10):
     newAudio = AudioSegment.from_wav(wav_audio_path)
     newAudio = newAudio[t1:t2]
     # Save the clip in the following format:
-    # ./clips/<label>-<name_of_file>-<starting timestamp from original recording>
-    clip_path = "clips/" + sample["label"] + "-" + wav_audio_file + "-" + str(t1)
+    # ./clips/<label>-<starting timestamp from original recording>-<name_of_file>
+    clip_path = "clips/" + sample["label"] + "-" str(t1) + "-" + wav_audio_file
     newAudio.export(clip_path, format="wav")
     
     # Delete flac and wav files.
