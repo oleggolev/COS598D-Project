@@ -4,7 +4,7 @@ import random
 # Fixed seed to ensure the same sample is drawn every time.
 SEED = 69420
 
-def get_samples(n):
+def get_data():
     """
     Headers:
     [0] audit_name
@@ -31,7 +31,4 @@ def get_samples(n):
                     obj[headers[i]] = row[i]
                 data.append(obj)
             line_count += 1
-
-    # Sample the same N instances out of the 38857 data points
-    random.seed(SEED)
-    return random.sample(data, n)
+    return data
