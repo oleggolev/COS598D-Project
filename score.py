@@ -9,7 +9,7 @@ import tensorflow_io as tfio
 from sample import get_data
 
 import os
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "/Users/oleggolev/.config/gcloud/legacy_credentials/ogolev@princeton.edu/adc.json"
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "./abc.json"
 BUCKET = "noaa-passive-bioacoustic"
 CLIENT = "COS598D-Whale"
 
@@ -48,17 +48,24 @@ for i, sample in enumerate(data):
 
     # Cut out the desired section. Save the cutout section with its label.
     subchunk_start = int(sample["subchunk_index"]) * 75.0
-    t1 = subchunk_start + float(sample["begin_rel_subchunk"])
-    t2 = subchunk_start + float(sample["end_rel_subchunk"])
+    t1 = subchunk_start + float(sample["begin_rel_subchunk"]) - 2
+    t2 = subchunk_start + float(sample["end_rel_subchunk"]) + 2
     newAudio = AudioSegment.from_wav(wav_audio_path)
-    newAudio = newAudio[t1:t2]
-    # Save the clip in the following format:
-    # ./clips/<label>-<starting timestamp from original recording>-<name_of_file>
-    clip_path = "clips/" + sample["label"] + "-" + str(t1) + "-" + wav_audio_file
-    newAudio.export(clip_path, format="wav")
+    try:
+        newAudio = newAudio[t1:t2]
+        # Save the clip in the following format:
+        # ./clips/<label>-<starting timestamp from original recording>-<name_of_file>
+        clip_path = "/scratch/network/ogolev/clips/" + sample["label"] + "-" + str(t1) + "-" + wav_audio_file
+        newAudio.export(clip_path, format="wav")
 
-    # Delete flac and wav files.
-    _, _, new_local_filename_path = get_filename_path(data[i+1])
-    if new_local_filename_path != local_filename_path:
-        os.remove(local_filename_path)
-        os.remove(wav_audio_path)
+        # Delete flac and wav files.
+        _, _, new_local_filename_path = get_filename_path(data[i+1])
+        if new_local_filename_path != local_filename_path:
+            os.remove(local_filename_path)
+            os.remove(wav_audio_path)
+    except:
+        # Delete flac and wav files.
+        _, _, new_local_filename_path = get_filename_path(data[i+1])
+        if new_local_filename_path != local_filename_path:
+            os.remove(local_filename_path)
+            os.remove(wav_audio_path)
