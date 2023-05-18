@@ -32,5 +32,5 @@ def prune(model, train_ds, val_ds):
         loss = tf.keras.losses.binary_crossentropy,
         optimizer = 'adam',
         metrics = ['accuracy'])
-    pruned_model.fit(train_ds, validation_data=val_ds, epochs=epochs, callbacks=callbacks, verbose=0)
+    pruned_model.fit(train_ds, validation_data=val_ds, epochs=epochs, callbacks=callbacks)
     return pruned_model
